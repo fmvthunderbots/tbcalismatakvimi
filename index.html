@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>THUNDER⚡BOTS Çalışma Takvimi</title>
+    <style>
+        :root {
+            --primary: #4F46E5;
+            --primary-hover: #4338CA;
+            --bg: #F3F4F6;
+            --text: #1F2937;
+            --border: rgba(229, 231, 235, 0.5);
+        }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            color: var(--text); 
+            padding: 20px; 
+            max-width: 800px; 
+            margin: 0 auto; 
+            
+            /* Arka plan logosu */
+            background-color: #F3F4F6; 
+            background-image: url('https://i.imgur.com/G1QpCsS.png'); 
+            background-repeat: no-repeat;
+            background-position: center center;
+            background-attachment: fixed; 
+            background-size: 50%; 
+            background-blend-mode: multiply; 
+        }
+        
+        /* ANA BAŞLIK ŞEFFAF PANELİ */
+        h1 { 
+            text-align: center; 
+            color: var(--primary); 
+            background: rgba(255, 255, 255, 0.85); 
+            padding: 20px; 
+            border-radius: 12px; 
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1); 
+            backdrop-filter: blur(8px); 
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            margin-top: 0;
+            margin-bottom: 25px;
+        }
+        h2 { text-align: center; color: var(--primary); margin-top: 0; }
+        
+        /* ŞEFFAF KART PANELLERİ */
+        .card { 
+            background: rgba(255, 255, 255, 0.80); 
+            padding: 25px; 
+            border-radius: 12px; 
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1); 
+            margin-bottom: 25px; 
+            backdrop-filter: blur(8px); 
+            border: 1px solid rgba(255, 255, 255, 0.5);
+        }
+        
+        .form-row { display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; }
+        .form-group { flex: 1; min-width: 200px; }
+        label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px; }
+        
+        input[type="date"], input[type="number"], input[type="text"] { 
+            width: 100%; 
+            padding: 10px; 
+            border: 1px solid #ccc; 
+            border-radius: 6px; 
+            box-sizing: border-box; 
+            font-size: 15px;
+            background: rgba(255, 255, 255, 0.9);
+        }
+        
+        .student-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 10px;
+            margin-bottom: 15px;
+            padding: 15px;
+            background: rgba(248, 250, 252, 0.7);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+        .student-item-wrapper {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 5px 8px;
+            border-radius: 4px;
+            border: 1px solid #e2e8f0;
+        }
+        .student-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            flex: 1;
+        }
+        .student-item input { width: 18px; height: 18px; cursor: pointer; }
+        .btn-remove {
+            background: none;
+            border: none;
+            color: #EF4444;
+            font-weight: bold;
+            cursor: pointer;
+            padding: 0 5px;
+            font-size: 14px;
+        }
+        .btn-remove:hover { color: #B91C1C; }
+        
+        button { 
+            background-color: var(--primary); 
+            color: white; 
+            border: none; 
+            padding: 12px 20px; 
+            border-radius: 6px; 
+            font-weight: bold; 
+            cursor: pointer; 
+            width: 100%;
+            font-size: 16px;
+            transition: background 0.2s;
+        }
+        button:hover { background-color: var(--primary-hover); }
+        .btn-small { background-color: #6B7280; width: auto; padding: 6px 12px; font-size: 13px; margin-bottom: 15px; }
+        .btn-small:hover { background-color: #4B5563; }
+        .btn-add { background-color: #10B981; width: auto; padding: 10px 15px; }
+        .btn-add:hover { background-color: #059669; }
+        .btn-delete { background-color: #EF4444; padding: 6px 12px; font-size: 13px; width: auto; }
+        .btn-delete:hover { background-color: #DC2626; }
+        .btn-export { background-color: #3B82F6; width: auto; padding: 10px 15px; font-size: 14px; }
+        .btn-export:hover { background-color: #2563EB; }
+        .btn-import { background-color: #F59E0B; width: auto; padding: 10px 15px; font-size: 14px; }
+        .btn-import:hover { background-color: #D97706; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid var(--border); }
+        th { background-color: rgba(249, 250, 251, 0.6); font-weight: 600; }
+        tr:hover { background-color: rgba(249, 250, 251, 0.8); }
+        
+        .summary {
+            margin-top: 20px;
+            padding: 20px;
+            background: rgba(238, 242, 255, 0.85);
+            border-left: 5px solid var(--primary);
+            border-radius: 6px;
+            backdrop-filter: blur(4px);
+        }
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 16px;
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(199, 210, 254, 0.5);
+        }
+        .stat-row:last-child {
+            margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+            font-weight: bold;
+            font-size: 18px;
+            color: var(--primary);
+        }
+        
+        .data-management {
+            background-color: rgba(248, 250, 252, 0.85);
+            border: 2px dashed #CBD5E1;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            margin-top: 15px;
+            backdrop-filter: blur(4px);
+        }
+        .btn-toggle-data {
+            background-color: #9CA3AF;
+            width: auto;
+            padding: 8px 16px;
+            font-size: 14px;
+            margin: 0 auto;
+            display: block;
+        }
+        .btn-toggle-data:hover { background-color: #6B7280; }
+    </style>
+</head>
+<body>
+
+    <h1>THUNDER⚡BOTS Çalışma Takvimi</h1>
+
+    <div class="card">
+        <h2>Yeni Çalışma Ekle</h2>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="workDate">Tarih</label>
+                <input type="date" id="workDate">
+            </div>
+            <div class="form-group">
+                <label for="workHours">Ders Saati</label>
+                <input type="number" id="workHours" min="0.5" step="0.5" value="1">
+            </div>
+        </div>
+
+        <label>Katılan Öğrenciler</label>
+        <div class="student-grid" id="studentList">
+            </div>
+
+        <div id="addStudentContainer" style="margin-bottom: 20px;">
+            <button class="btn-small" id="toggleStudentBtn" onclick="toggleStudentForm()">+ Yeni Öğrenci Ekle</button>
+            <div id="addStudentForm" style="display: none; gap: 10px; align-items: center;">
+                <input type="text" id="newStudentName" placeholder="Yeni öğrenci adı...">
+                <button class="btn-add" onclick="addNewStudent()">Ekle</button>
+            </div>
+        </div>
+
+        <button onclick="saveRecord()">Kayıt Ekle</button>
+    </div>
+
+    <div class="card">
+        <h2>Geçmiş Çalışmalar</h2>
+        <div style="overflow-x: auto;">
+            <table id="recordsTable">
+                <thead>
+                    <tr>
+                        <th>Tarih</th>
+                        <th>Katılanlar</th>
+                        <th>Ders Saati</th>
+                        <th>İşlem</th>
+                    </tr>
+                </thead>
+                <tbody id="recordsBody">
+                    </tbody>
+            </table>
+        </div>
+
+        <div class="summary">
+            <div class="stat-row">
+                <span>Site Öncesi Toplam Kayıt:</span>
+                <span>292 Saat</span>
+            </div>
+            <div class="stat-row">
+                <span>Sisteme Girilen Yeni Kayıtlar:</span>
+                <span id="newHoursCount">0 Saat</span>
+            </div>
+            <div class="stat-row">
+                <span>Genel Toplam:</span>
+                <span id="totalHoursCount">292 Saat</span>
+            </div>
+            <div class="stat-row" style="margin-top: 15px;">
+                <span>Haftalık Çalışma Ortalaması:</span>
+                <span id="weeklyAverage">0 Saat / Hafta</span>
+            </div>
+        </div>
+    </div>
+
+    <button class="btn-toggle-data" onclick="toggleDataManagement()">⚙️ Veri Yönetimi</button>
+    
+    <div id="dataManagementSection" class="data-management" style="display: none;">
+        <div style="display: flex; gap: 15px; justify-content: center;">
+            <button class="btn-export" onclick="exportData()">⬇️ Verileri İndir</button>
+            <button class="btn-import" onclick="document.getElementById('importFile').click()">⬆️ Veri Yükle</button>
+            <input type="file" id="importFile" style="display: none;" accept=".json" onchange="importData(event)">
+        </div>
+    </div>
+
+    <script>
+        // Ana kadro 
+        const defaultStudents = ['Batu ŞAHİN', 'Selen IŞIK', 'Ayşe Öykü YILDIRIM', 'Mehmet Alp YILDIZ', 'Doğa ÇETİN', 'Can Karan NURTAŞ'];
+        const historicalTotalHours = 292;
+        
+        let students = JSON.parse(localStorage.getItem('robotik_students')) || defaultStudents;
+        let records = JSON.parse(localStorage.getItem('robotik_records')) || [];
+
+        document.getElementById('workDate').valueAsDate = new Date();
+
+        function init() {
+            renderStudents();
+            renderRecords();
+        }
+
+        function renderStudents() {
+            const container = document.getElementById('studentList');
+            container.innerHTML = '';
+            
+            students.forEach((student) => {
+                const isDefault = defaultStudents.includes(student);
+                const removeBtnHtml = !isDefault ? `<button type="button" class="btn-remove" onclick="removeStudent('${student}')" title="Öğrenciyi Sil">✖</button>` : '';
+
+                container.innerHTML += `
+                    <div class="student-item-wrapper">
+                        <label class="student-item">
+                            <input type="checkbox" class="student-checkbox" value="${student}">
+                            ${student}
+                        </label>
+                        ${removeBtnHtml}
+                    </div>
+                `;
+            });
+        }
+
+        function removeStudent(studentName) {
+            if(confirm(`"${studentName}" isimli öğrenciyi listeden silmek istediğine emin misin?`)) {
+                students = students.filter(s => s !== studentName);
+                localStorage.setItem('robotik_students', JSON.stringify(students));
+                renderStudents();
+            }
+        }
+
+        function toggleStudentForm() {
+            const form = document.getElementById('addStudentForm');
+            const btn = document.getElementById('toggleStudentBtn');
+            form.style.display = 'flex';
+            btn.style.display = 'none';
+        }
+
+        function resetStudentForm() {
+            const form = document.getElementById('addStudentForm');
+            const btn = document.getElementById('toggleStudentBtn');
+            form.style.display = 'none';
+            btn.style.display = 'inline-block';
+            document.getElementById('newStudentName').value = '';
+        }
+
+        function addNewStudent() {
+            const input = document.getElementById('newStudentName');
+            const name = input.value.trim();
+            if (name && !students.includes(name)) {
+                students.push(name);
+                localStorage.setItem('robotik_students', JSON.stringify(students));
+                renderStudents();
+                resetStudentForm();
+            }
+        }
+
+        function saveRecord() {
+            const date = document.getElementById('workDate').value;
+            const hours = parseFloat(document.getElementById('workHours').value);
+            
+            const checkboxes = document.querySelectorAll('.student-checkbox:checked');
+            const selectedStudents = Array.from(checkboxes).map(cb => cb.value);
+
+            if (selectedStudents.length === 0) {
+                alert("Lütfen en az bir öğrenci seçin!");
+                return;
+            }
+            if (isNaN(hours) || hours <= 0) {
+                alert("Geçerli bir ders saati girin!");
+                return;
+            }
+
+            const newRecord = {
+                id: Date.now(),
+                date: date,
+                hours: hours,
+                participants: selectedStudents.join(', ')
+            };
+
+            records.push(newRecord);
+            localStorage.setItem('robotik_records', JSON.stringify(records));
+            
+            checkboxes.forEach(cb => cb.checked = false);
+            document.getElementById('workHours').value = 1;
+            resetStudentForm(); 
+            renderRecords();
+        }
+
+        function deleteRecord(id) {
+            if(confirm("Bu kaydı silmek istediğinize emin misiniz?")) {
+                records = records.filter(r => r.id !== id);
+                localStorage.setItem('robotik_records', JSON.stringify(records));
+                renderRecords();
+            }
+        }
+
+        function calculateAverage(grandTotal) {
+            const startDate = new Date(2025, 9, 4); 
+            const endDate = new Date(2026, 5, 7);   
+            
+            const today = new Date();
+            today.setHours(0, 0, 0, 0); 
+            
+            const calcDate = today < endDate ? today : endDate;
+            const diffTime = Math.abs(calcDate - startDate);
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)); 
+            
+            const weeks = Math.floor(diffDays / 7) + 1;
+            return (grandTotal / weeks).toFixed(1);
+        }
+
+        function renderRecords() {
+            const tbody = document.getElementById('recordsBody');
+            tbody.innerHTML = '';
+            let newTotal = 0;
+
+            const sortedRecords = [...records].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+            sortedRecords.forEach(record => {
+                newTotal += record.hours;
+                
+                const dateObj = new Date(record.date);
+                const formattedDate = dateObj.toLocaleDateString('tr-TR');
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td><strong>${formattedDate}</strong></td>
+                        <td>${record.participants}</td>
+                        <td>${record.hours} Saat</td>
+                        <td><button class="btn-delete" onclick="deleteRecord(${record.id})">Sil</button></td>
+                    </tr>
+                `;
+            });
+
+            const grandTotal = historicalTotalHours + newTotal;
+            const weeklyAvg = calculateAverage(grandTotal);
+
+            document.getElementById('newHoursCount').innerText = newTotal + " Saat";
+            document.getElementById('totalHoursCount').innerText = grandTotal + " Saat";
+            document.getElementById('weeklyAverage').innerText = weeklyAvg + " Saat / Hafta";
+        }
+
+        // --- VERİ YÖNETİMİ GİZLE/GÖSTER ---
+        function toggleDataManagement() {
+            const section = document.getElementById('dataManagementSection');
+            if (section.style.display === 'none') {
+                section.style.display = 'block';
+            } else {
+                section.style.display = 'none';
+            }
+        }
+
+        // --- VERİ DIŞA AKTARMA ---
+        function exportData() {
+            if(records.length === 0) {
+                alert("İndirilecek kayıt bulunamadı.");
+                return;
+            }
+            
+            const dataToSave = {
+                students: students,
+                records: records
+            };
+            
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(dataToSave));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+            
+            const dateStr = new Date().toLocaleDateString('tr-TR').replace(/\./g, '_');
+            downloadAnchorNode.setAttribute("download", `thunderbots_yedek_${dateStr}.json`);
+            
+            document.body.appendChild(downloadAnchorNode);
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+        }
+
+        // --- VERİ İÇE AKTARMA ---
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    
+                    if (importedData.students && importedData.records) {
+                        if(confirm("Mevcut verilerin üzerine yazılacak. Onaylıyor musunuz?")) {
+                            students = importedData.students;
+                            records = importedData.records;
+                            
+                            localStorage.setItem('robotik_students', JSON.stringify(students));
+                            localStorage.setItem('robotik_records', JSON.stringify(records));
+                            
+                            init(); 
+                            alert("Veriler başarıyla yüklendi!");
+                        }
+                    } else {
+                        alert("Hatalı dosya formatı! Lütfen geçerli bir yedek dosyası seçin.");
+                    }
+                } catch (error) {
+                    alert("Dosya okunurken bir hata oluştu.");
+                }
+            };
+            reader.readAsText(file);
+            
+            event.target.value = '';
+        }
+
+        init();
+    </script>
+</body>
+</html>
