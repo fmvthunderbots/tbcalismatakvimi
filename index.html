@@ -132,9 +132,26 @@
         .btn-import:hover { background-color: #D97706; }
         
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { padding: 12px; text-align: left; border-bottom: 1px solid var(--border); }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }
         th { background-color: rgba(249, 250, 251, 0.6); font-weight: 600; }
         tr:hover { background-color: rgba(249, 250, 251, 0.8); }
+        
+        /* Akordiyon (Katılanlar Listesi) Tasarımı */
+        .participant-summary {
+            cursor: pointer;
+            color: var(--primary);
+            font-weight: 600;
+            user-select: none;
+            outline: none;
+        }
+        .participant-list {
+            font-size: 13px;
+            color: #4B5563;
+            margin-top: 8px;
+            padding-left: 10px;
+            border-left: 2px solid var(--primary);
+            line-height: 1.5;
+        }
         
         .summary {
             margin-top: 20px;
@@ -262,11 +279,25 @@
     </div>
 
     <script>
-        // Ana kadro 
-        const defaultStudents = ['Batu ŞAHİN', 'Selen IŞIK', 'Ayşe Öykü YILDIRIM', 'Mehmet Alp YILDIZ', 'Doğa ÇETİN', 'Can Karan NURTAŞ'];
+        // Ana kadroya THUNDER⚡BOTS Takımı eklendi
+        const defaultStudents = ['THUNDER⚡BOTS Takımı', 'Batu ŞAHİN', 'Selen IŞIK', 'Ayşe Öykü YILDIRIM', 'Mehmet Alp YILDIZ', 'Doğa ÇETİN', 'Can Karan NURTAŞ'];
         const historicalTotalHours = 292;
         
         let students = JSON.parse(localStorage.getItem('robotik_students')) || defaultStudents;
+        
+        // Eğer yerel hafızada eski "THUNDERBOTS Öğrencileri" adı varsa, onu yenisiyle değiştir.
+        const oldNameIndex = students.indexOf('THUNDERBOTS Öğrencileri');
+        if (oldNameIndex !== -1) {
+            students[oldNameIndex] = 'THUNDER⚡BOTS Takımı';
+            localStorage.setItem('robotik_students', JSON.stringify(students));
+        }
+
+        // Eğer listede 'THUNDER⚡BOTS Takımı' yoksa, onu başa ekle.
+        if (!students.includes('THUNDER⚡BOTS Takımı')) {
+            students.unshift('THUNDER⚡BOTS Takımı');
+            localStorage.setItem('robotik_students', JSON.stringify(students));
+        }
+
         let records = JSON.parse(localStorage.getItem('robotik_records')) || [];
 
         document.getElementById('workDate').valueAsDate = new Date();
@@ -398,10 +429,26 @@
                 const dateObj = new Date(record.date);
                 const formattedDate = dateObj.toLocaleDateString('tr-TR');
 
+                const studentArray = record.participants.split(', ');
+                const studentCount = studentArray.length;
+                let participantsCell = '';
+
+                if (studentCount > 1) {
+                    const listHtml = studentArray.join('<br>');
+                    participantsCell = `
+                        <details>
+                            <summary class="participant-summary">${studentCount} Öğrenci</summary>
+                            <div class="participant-list">${listHtml}</div>
+                        </details>
+                    `;
+                } else {
+                    participantsCell = record.participants;
+                }
+
                 tbody.innerHTML += `
                     <tr>
                         <td><strong>${formattedDate}</strong></td>
-                        <td>${record.participants}</td>
+                        <td>${participantsCell}</td>
                         <td>${record.hours} Saat</td>
                         <td><button class="btn-delete" onclick="deleteRecord(${record.id})">Sil</button></td>
                     </tr>
