@@ -6,8 +6,9 @@
     <title>THUNDER⚡BOTS Çalışma Takvimi</title>
     <style>
         :root {
-            --primary: #4F46E5;
-            --primary-hover: #4338CA;
+            /* DAHA KOYU VE MAT BİR MOR */
+            --primary: #4c1d95; 
+            --primary-hover: #3b0764;
             --bg: #F3F4F6;
             --text: #1F2937;
             --border: rgba(229, 231, 235, 0.5);
@@ -67,6 +68,7 @@
             box-sizing: border-box; 
             font-size: 15px;
             background: rgba(255, 255, 255, 0.9);
+            color: #333;
         }
         
         .student-grid {
@@ -136,7 +138,7 @@
         th { background-color: rgba(249, 250, 251, 0.6); font-weight: 600; }
         tr:hover { background-color: rgba(249, 250, 251, 0.8); }
         
-        /* Akordiyon (Katılanlar Listesi) Tasarımı */
+        /* Akordiyon Tasarımı */
         .participant-summary {
             cursor: pointer;
             color: var(--primary);
@@ -279,30 +281,63 @@
     </div>
 
     <script>
-        // Ana kadroya THUNDER⚡BOTS Takımı eklendi
-        const defaultStudents = ['THUNDER⚡BOTS Takımı', 'Batu ŞAHİN', 'Selen IŞIK', 'Ayşe Öykü YILDIRIM', 'Mehmet Alp YILDIZ', 'Doğa ÇETİN', 'Can Karan NURTAŞ'];
+        // YENİ SIRALAMA: En çok gelenden aza doğru
+        const defaultStudents = [
+            'THUNDER⚡BOTS Takımı', 
+            'Mehmet Alp YILDIZ', 
+            'Selen IŞIK', 
+            'Ayşe Öykü YILDIRIM', 
+            'Doğa ÇETİN', 
+            'Can Karan NURTAŞ',
+            'Batu ŞAHİN'
+        ];
         const historicalTotalHours = 292;
         
         let students = JSON.parse(localStorage.getItem('robotik_students')) || defaultStudents;
         
-        // Eğer yerel hafızada eski "THUNDERBOTS Öğrencileri" adı varsa, onu yenisiyle değiştir.
+        // Eski "THUNDERBOTS Öğrencileri" adı varsa yenisiyle değiştir
         const oldNameIndex = students.indexOf('THUNDERBOTS Öğrencileri');
         if (oldNameIndex !== -1) {
             students[oldNameIndex] = 'THUNDER⚡BOTS Takımı';
-            localStorage.setItem('robotik_students', JSON.stringify(students));
         }
 
-        // Eğer listede 'THUNDER⚡BOTS Takımı' yoksa, onu başa ekle.
-        if (!students.includes('THUNDER⚡BOTS Takımı')) {
-            students.unshift('THUNDER⚡BOTS Takımı');
-            localStorage.setItem('robotik_students', JSON.stringify(students));
-        }
+        // Eksik as kadro üyelerini tamamla
+        defaultStudents.forEach(ds => {
+            if (!students.includes(ds)) {
+                students.push(ds);
+            }
+        });
+
+        // Öğrenci listesini her zaman hedeflenen as kadro sırasına göre otomatik diz
+        students.sort((a, b) => {
+            let idxA = defaultStudents.indexOf(a);
+            let idxB = defaultStudents.indexOf(b);
+            
+            // İkisi de as kadrodaysa as kadro sırasına göre diz
+            if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+            // Biri as kadro, diğeri sonradan eklenense, as kadroyu başa al
+            if (idxA !== -1) return -1;
+            if (idxB !== -1) return 1;
+            // İkisi de sonradan eklenense yerlerini koru
+            return 0;
+        });
+        
+        // Sıralanmış güncel listeyi hafızaya kaydet
+        localStorage.setItem('robotik_students', JSON.stringify(students));
 
         let records = JSON.parse(localStorage.getItem('robotik_records')) || [];
 
-        document.getElementById('workDate').valueAsDate = new Date();
+        // Mobil cihazlarda saat dilimi sorununu çözen garantili Bugünün Tarihi kodu
+        function setTodayDate() {
+            const today = new Date();
+            const yyyy = today.getFullYear();
+            const mm = String(today.getMonth() + 1).padStart(2, '0');
+            const dd = String(today.getDate()).padStart(2, '0');
+            document.getElementById('workDate').value = `${yyyy}-${mm}-${dd}`;
+        }
 
         function init() {
+            setTodayDate();
             renderStudents();
             renderRecords();
         }
@@ -387,8 +422,10 @@
             records.push(newRecord);
             localStorage.setItem('robotik_records', JSON.stringify(records));
             
-            checkboxes.forEach(cb => cb.checked = false);
+            // Tüm tikleri zorla sıfırlamak için listeyi baştan çizdiriyoruz
+            renderStudents(); 
             document.getElementById('workHours').value = 1;
+            setTodayDate(); // Tarihi tekrar bugüne sabitliyoruz
             resetStudentForm(); 
             renderRecords();
         }
@@ -463,7 +500,6 @@
             document.getElementById('weeklyAverage').innerText = weeklyAvg + " Saat / Hafta";
         }
 
-        // --- VERİ YÖNETİMİ GİZLE/GÖSTER ---
         function toggleDataManagement() {
             const section = document.getElementById('dataManagementSection');
             if (section.style.display === 'none') {
@@ -473,7 +509,6 @@
             }
         }
 
-        // --- VERİ DIŞA AKTARMA ---
         function exportData() {
             if(records.length === 0) {
                 alert("İndirilecek kayıt bulunamadı.");
@@ -497,7 +532,6 @@
             downloadAnchorNode.remove();
         }
 
-        // --- VERİ İÇE AKTARMA ---
         function importData(event) {
             const file = event.target.files[0];
             if (!file) return;
