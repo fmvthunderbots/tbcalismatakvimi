@@ -440,11 +440,12 @@
 
         function calculateAverage(grandTotal) {
             const startDate = new Date(2025, 9, 4); 
-            const endDate = new Date(2026, 5, 7);   
+            const endDate = new Date(2026, 5, 5); // 5 Haziran 2026 Cuma (Sabit Limit)
             
             const today = new Date();
             today.setHours(0, 0, 0, 0); 
             
+            // Eğer bugünün tarihi 5 Haziran'ı geçmişse hesaplamayı 5 Haziran'da kilitler
             const calcDate = today < endDate ? today : endDate;
             const diffTime = Math.abs(calcDate - startDate);
             const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)); 
