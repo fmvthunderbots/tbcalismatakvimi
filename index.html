@@ -425,7 +425,7 @@
                 <span class="status-dot dot-yellow" id="statusDot"></span>
                 <span id="syncStatusText">Yerel Mod (Bulut bağlantısı yok)</span>
             </div>
-            <button class="btn-settings-toggle" onclick="openSettingsModal()">⚙️ Bulut & Ayarlar</button>
+            <button class="btn-settings-toggle" onclick="promptSettingsAuth()">⚙️ Bulut & Ayarlar</button>
         </div>
     </div>
 
@@ -526,6 +526,28 @@
             <div style="display: flex; gap: 10px; justify-content: flex-end;">
                 <button type="button" class="btn-small" onclick="closeResetModal()" style="background:#6b7280;">Vazgeç</button>
                 <button type="button" class="btn-delete" style="padding: 10px 18px; font-size: 14px; background: #dc2626;" onclick="executeSystemReset()">⚠️ Onayla ve Sıfırla</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- AYARLAR GİRİŞİ ŞİFRE MODALI -->
+    <div id="settingsAuthModal" class="modal-backdrop">
+        <div class="modal-content" style="max-width: 420px; border-top: 5px solid var(--primary); text-align: center;">
+            <button class="modal-close" onclick="closeSettingsAuthModal()">&times;</button>
+            <div style="font-size: 36px; margin-bottom: 6px;">🔒</div>
+            <h3 style="margin-top: 0; color: var(--primary); font-size: 18px;">Yönetici Girişi</h3>
+            <p style="font-size: 13px; color: #4b5563; margin-bottom: 16px; line-height: 1.5;">
+                Bu alan sistem ve bulut yapılandırmalarını içerir. Erişmek için lütfen yönetici şifresini giriniz.
+            </p>
+
+            <div style="margin-bottom: 18px; text-align: left;">
+                <label for="settingsPasswordInput" style="font-size: 13px; color: #374151;">Yönetici Şifresi:</label>
+                <input type="password" id="settingsPasswordInput" placeholder="Şifreyi giriniz..." onkeydown="if(event.key==='Enter') verifySettingsPassword()">
+            </div>
+
+            <div style="display: flex; gap: 10px; justify-content: center;">
+                <button type="button" class="btn-small" onclick="closeSettingsAuthModal()" style="background:#6b7280; padding: 9px 18px;">İptal</button>
+                <button type="button" class="btn-add" onclick="verifySettingsPassword()" style="padding: 9px 20px;">Giriş Yap</button>
             </div>
         </div>
     </div>
@@ -670,7 +692,7 @@
 
             if (!config || !config.projectId) {
                 statusDot.className = 'status-dot dot-yellow';
-                syncStatusText.innerHTML = 'Yerel Mod (Bulut bağlantısı için <a href="javascript:void(0)" onclick="openSettingsModal()" style="color:var(--primary);text-decoration:underline;">tıklayın</a>)';
+                syncStatusText.innerHTML = 'Yerel Mod (Bulut bağlantısı için <a href="javascript:void(0)" onclick="promptSettingsAuth()" style="color:var(--primary);text-decoration:underline;">tıklayın</a>)';
                 isCloudActive = false;
                 renderStudents();
                 renderRecords();
@@ -1060,8 +1082,34 @@
             alert("✅ Sistem başarıyla sıfırlandı!\nGeçmiş tüm kayıtlar temizlendi ve 2026 yeni dönem kadrosu hazırlandı.");
         }
 
-        // AYARLAR MODALI
-        function openSettingsModal() {
+        // AYARLAR GİRİŞİ ŞİFRE KONTROLÜ
+        function promptSettingsAuth() {
+            document.getElementById('settingsPasswordInput').value = '';
+            document.getElementById('settingsAuthModal').style.display = 'flex';
+            setTimeout(() => document.getElementById('settingsPasswordInput').focus(), 150);
+        }
+
+        function closeSettingsAuthModal() {
+            document.getElementById('settingsAuthModal').style.display = 'none';
+        }
+
+        function verifySettingsPassword() {
+            const enteredPw = document.getElementById('settingsPasswordInput').value.trim();
+            if (!enteredPw) {
+                alert("Lütfen yönetici şifresini giriniz!");
+                return;
+            }
+
+            if (enteredPw === RESET_PASSWORD) {
+                closeSettingsAuthModal();
+                openSettingsModalDirect();
+            } else {
+                alert("❌ Hatalı şifre! Ayarlar alanına erişim engellendi.");
+                closeSettingsAuthModal();
+            }
+        }
+
+        function openSettingsModalDirect() {
             const saved = localStorage.getItem('thunderbots_firebase_config');
             if (saved) {
                 document.getElementById('firebaseConfigInput').value = saved;
