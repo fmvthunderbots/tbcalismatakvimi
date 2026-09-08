@@ -489,20 +489,15 @@
         <!-- İSTATİSTİK VE ÖZET BİLGİ -->
         <div class="summary">
             <div class="stat-row">
-                <span>Yeni Dönem Öncesi Devreden Saat:</span>
-                <span id="historicalHoursDisplay">0 Saat</span>
-            </div>
-            <div class="stat-row">
-                <span>Bu Sezon Girilen Kayıtlar:</span>
-                <span id="newHoursCount">0 Saat</span>
-            </div>
-            <div class="stat-row">
-                <span>Genel Toplam:</span>
+                <span>Genel Toplam Çalışma:</span>
                 <span id="totalHoursCount">0 Saat</span>
             </div>
-            <div class="stat-row" style="margin-top: 15px;">
+            <div class="stat-row">
                 <span>Haftalık Çalışma Ortalaması:</span>
                 <span id="weeklyAverage">0 Saat / Hafta</span>
+            </div>
+            <div id="seasonCompletedBanner" style="display: none; margin-top: 12px; background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #065f46; padding: 9px 14px; border-radius: 8px; font-size: 13.5px; font-weight: 600; text-align: center;">
+                🏁 Çalışma Takvimi Tamamlandı (Sonuçlar Donduruldu: <span id="completedDateSpan"></span>)
             </div>
         </div>
     </div>
@@ -573,6 +568,19 @@
                 </div>
             </div>
 
+            <!-- ÇALIŞMA TAKVİMİNİ TAMAMLAMA (DONDURMA) BÖLÜMÜ -->
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 14px; border-radius: 10px; margin-bottom: 20px;">
+                <h4 style="margin: 0 0 6px 0; color: #334155; font-size: 14px;">🏁 Çalışma Takvimini Tamamla (Ortalamayı Dondur)</h4>
+                <p style="font-size: 12.5px; color: #64748b; margin-top: 0; margin-bottom: 12px; line-height: 1.5;">
+                    Haziran ayında veya çalışmalarınız sona erdiğinde bu butona basarak sezonu tamamlayabilirsiniz. Haftalık ortalama o tarihte dondurulur ve yaz tatilinde zaman geçse de düşmez.
+                </p>
+                <div>
+                    <button type="button" id="btnToggleSeason" style="width: auto; padding: 9px 18px; font-size: 13.5px; background: #4c1d95; color: white; border-radius: 6px; font-weight: bold; cursor: pointer;" onclick="toggleSeasonCompletion()">
+                        🏁 Bu Yıl İçin Çalışma Takvimini Tamamla
+                    </button>
+                </div>
+            </div>
+
             <!-- BULUT YAPILANDIRMASI BÖLÜMÜ -->
             <h4 style="margin: 0 0 6px 0; color: #334155; font-size: 14px;">☁️ Bulut Senkronizasyonu</h4>
             <p style="font-size: 12.5px; color: #4b5563; margin-top: 0; margin-bottom: 12px;">
@@ -634,6 +642,8 @@
         
         let students = JSON.parse(localStorage.getItem('robotik_students')) || [...initialClubStudents];
         let records = JSON.parse(localStorage.getItem('robotik_records')) || [];
+        let seasonCompleted = JSON.parse(localStorage.getItem('thunderbots_season_completed') || 'false');
+        let seasonCompletedDate = localStorage.getItem('thunderbots_season_completed_date') || null;
 
         // Eksik 2026 kadro öğrencileri varsa listeye ekle
         initialClubStudents.forEach(st => {
@@ -722,10 +732,16 @@
                             records = data.records;
                             localStorage.setItem('robotik_records', JSON.stringify(records));
                         }
+                        seasonCompleted = !!data.seasonCompleted;
+                        seasonCompletedDate = data.seasonCompletedDate || null;
+                        localStorage.setItem('thunderbots_season_completed', JSON.stringify(seasonCompleted));
+                        localStorage.setItem('thunderbots_season_completed_date', seasonCompletedDate || '');
+
                         renderStudents();
                         renderRecords();
+                        updateSeasonUI();
                     } else {
-                        // Eğer bulutta henüz belge yoksa bilgisayardaki mevcut verileri buluta yükle
+                        // Eğer bulutta henüz belge yoksa mevcut verileri buluta yükle
                         syncToCloud();
                     }
                 }, (error) => {
@@ -744,6 +760,7 @@
 
             renderStudents();
             renderRecords();
+            updateSeasonUI();
         }
 
         // DEĞİŞİKLİKLERİ BULUTA VE YERELE YAZMA
@@ -751,13 +768,16 @@
             // Her halükarda yerel hafızaya yaz (offline koruması)
             localStorage.setItem('robotik_students', JSON.stringify(students));
             localStorage.setItem('robotik_records', JSON.stringify(records));
+            localStorage.setItem('thunderbots_season_completed', JSON.stringify(seasonCompleted));
+            localStorage.setItem('thunderbots_season_completed_date', seasonCompletedDate || '');
 
             if (isCloudActive && db) {
                 try {
                     await db.collection('thunderbots').doc('work_tracker').set({
-                        season: CURRENT_SEASON_KEY,
                         students: students,
                         records: records,
+                        seasonCompleted: seasonCompleted,
+                        seasonCompletedDate: seasonCompletedDate,
                         updatedAt: new Date().toISOString()
                     });
                 } catch(e) {
@@ -893,20 +913,33 @@
             }
         }
 
-        // HAFTALIK ORTALAMA HESABI (2026-2027 SEZONU)
+        // DİNAMİK HAFTALIK ORTALAMA HESABI (İLK GİRİLEN ÇALIŞMADAN İTİBAREN)
         function calculateAverage(grandTotal) {
             if (!records || records.length === 0 || grandTotal === 0) {
                 return "0.0";
             }
 
-            const startDate = new Date(2026, 8, 1); // 1 Eylül 2026 (Yeni Sezon)
-            const endDate = new Date(2027, 5, 18);  // 18 Haziran 2027
+            // İlk girilen çalışma tarihini bul
+            const validDates = records
+                .map(r => new Date(r.date + 'T00:00:00'))
+                .filter(d => !isNaN(d.getTime()));
+
+            if (validDates.length === 0) return "0.0";
+
+            const startDate = new Date(Math.min(...validDates));
             
-            const today = new Date();
-            today.setHours(0, 0, 0, 0); 
-            
-            const calcDate = today < endDate ? today : endDate;
-            const diffTime = Math.max(0, calcDate - startDate);
+            // Eğer sezon tamamlandıysa (dondurulduysa) bitiş tarihi o gündür, değilse bugündür
+            let endDate = new Date();
+            endDate.setHours(0, 0, 0, 0);
+
+            if (seasonCompleted && seasonCompletedDate) {
+                const compDate = new Date(seasonCompletedDate + 'T00:00:00');
+                if (!isNaN(compDate.getTime())) {
+                    endDate = compDate;
+                }
+            }
+
+            const diffTime = Math.max(0, endDate - startDate);
             const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)); 
             
             const weeks = Math.max(1, Math.floor(diffDays / 7) + 1);
@@ -961,12 +994,75 @@
                 `;
             });
 
-            const grandTotal = historicalTotalHours + newTotal;
-            const weeklyAvg = calculateAverage(grandTotal);
+            const weeklyAvg = calculateAverage(newTotal);
 
-            document.getElementById('newHoursCount').innerText = newTotal + " Saat";
-            document.getElementById('totalHoursCount').innerText = grandTotal + " Saat";
-            document.getElementById('weeklyAverage').innerText = weeklyAvg + " Saat / Hafta";
+            document.getElementById('totalHoursCount').innerText = newTotal + " Saat";
+            
+            if (seasonCompleted && seasonCompletedDate) {
+                document.getElementById('weeklyAverage').innerText = `${weeklyAvg} Saat / Hafta (Donduruldu)`;
+            } else {
+                document.getElementById('weeklyAverage').innerText = `${weeklyAvg} Saat / Hafta`;
+            }
+
+            updateSeasonUI();
+        }
+
+        // SEZON TAMAMLAMA & ARAYÜZ GÜNCELLEME
+        function updateSeasonUI() {
+            const btn = document.getElementById('btnToggleSeason');
+            const banner = document.getElementById('seasonCompletedBanner');
+            const dateSpan = document.getElementById('completedDateSpan');
+
+            if (!btn) return;
+
+            if (seasonCompleted && seasonCompletedDate) {
+                const dateParts = seasonCompletedDate.split('-');
+                const formattedDate = dateParts.length === 3 ? `${dateParts[2]}.${dateParts[1]}.${dateParts[0]}` : seasonCompletedDate;
+
+                btn.innerText = "🔄 Takvimi Yeniden Aktif Et (Hesaplamayı Devam Ettir)";
+                btn.style.backgroundColor = "#059669"; // Yeşil
+                
+                if (banner && dateSpan) {
+                    dateSpan.innerText = formattedDate;
+                    banner.style.display = 'block';
+                }
+            } else {
+                btn.innerText = "🏁 Bu Yıl İçin Çalışma Takvimini Tamamla";
+                btn.style.backgroundColor = "#4c1d95"; // Mor
+                
+                if (banner) {
+                    banner.style.display = 'none';
+                }
+            }
+        }
+
+        async function toggleSeasonCompletion() {
+            if (!seasonCompleted) {
+                const todayFormatted = new Date().toLocaleDateString('tr-TR');
+                if (confirm(`Çalışma takvimini bu yıl için tamamlamak ve haftalık ortalamayı bugünün tarihi (${todayFormatted}) itibarıyla dondurmak istediğinize emin misiniz?`)) {
+                    seasonCompleted = true;
+                    const today = new Date();
+                    const yyyy = today.getFullYear();
+                    const mm = String(today.getMonth() + 1).padStart(2, '0');
+                    const dd = String(today.getDate()).padStart(2, '0');
+                    seasonCompletedDate = `${yyyy}-${mm}-${dd}`;
+
+                    await syncToCloud();
+                    renderRecords();
+                    updateSeasonUI();
+                    showToast("🏁 Çalışma takvimi tamamlandı ve donduruldu.");
+                }
+            } else {
+                if (confirm("Çalışma takvimini yeniden aktif etmek ve haftalık ortalama hesaplamasını devam ettirmek istediğinize emin misiniz?")) {
+                    seasonCompleted = false;
+                    seasonCompletedDate = null;
+
+                    await syncToCloud();
+                    renderRecords();
+                    updateSeasonUI();
+                    showToast("🔄 Çalışma takvimi yeniden aktif edildi.");
+                }
+            }
         }
 
 
@@ -1184,6 +1280,7 @@
         window.addEventListener('DOMContentLoaded', () => {
             setTodayDate();
             initFirebase();
+            updateSeasonUI();
         });
     </script>
 </body>
