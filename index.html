@@ -642,6 +642,8 @@
         
         let students = JSON.parse(localStorage.getItem('robotik_students')) || [...initialClubStudents];
         let records = JSON.parse(localStorage.getItem('robotik_records')) || [];
+        let deletedRecordIds = JSON.parse(localStorage.getItem('thunderbots_deleted_ids') || '[]');
+        let lastResetTime = parseInt(localStorage.getItem('thunderbots_last_reset_time') || '0', 10);
         let seasonCompleted = JSON.parse(localStorage.getItem('thunderbots_season_completed') || 'false');
         let seasonCompletedDate = localStorage.getItem('thunderbots_season_completed_date') || null;
 
@@ -724,14 +726,59 @@
 
                     if (doc.exists) {
                         const data = doc.data();
-                        if (data.students && Array.isArray(data.students)) {
+
+                        // 1. Yönetici sistem sıfırlaması kontrolü
+                        if (data.lastResetTime && Number(data.lastResetTime) > lastResetTime) {
+                            lastResetTime = Number(data.lastResetTime);
+                            localStorage.setItem('thunderbots_last_reset_time', lastResetTime);
+                            records = [];
+                            deletedRecordIds = [];
+                            localStorage.setItem('robotik_records', JSON.stringify([]));
+                            localStorage.setItem('thunderbots_deleted_ids', JSON.stringify([]));
+                        }
+
+                        // 2. Silinen kayıt ID'lerini eşitle
+                        if (data.deletedRecordIds && Array.isArray(data.deletedRecordIds)) {
+                            const combinedDeleted = new Set([...deletedRecordIds, ...data.deletedRecordIds]);
+                            deletedRecordIds = Array.from(combinedDeleted);
+                            localStorage.setItem('thunderbots_deleted_ids', JSON.stringify(deletedRecordIds));
+                        }
+                        const deletedSet = new Set(deletedRecordIds);
+
+                        // 3. Öğrencileri güncelle
+                        if (data.students && Array.isArray(data.students) && data.students.length > 0) {
                             students = data.students;
                             localStorage.setItem('robotik_students', JSON.stringify(students));
                         }
-                        if (data.records && Array.isArray(data.records)) {
-                            records = data.records;
-                            localStorage.setItem('robotik_records', JSON.stringify(records));
-                        }
+
+                        // 4. ÇİFT TARAFLI AKILLI BİRLEŞTİRME (KAYIT KAYBOLMASINI %100 ÖNLER):
+                        // Buluttan gelenler ile yereldeki kayıtlar ID bazında birleştirilir.
+                        // Böylece bulut anlık boş gelse bile yereldeki kayıt ASLA silinmez!
+                        const incomingRecords = (data.records && Array.isArray(data.records)) ? data.records : [];
+                        const recordMap = new Map();
+
+                        // Önce yereldeki kayıtları ekle (silinmemiş olanlar)
+                        records.forEach(r => {
+                            if (r && r.id && !deletedSet.has(r.id)) {
+                                recordMap.set(r.id, r);
+                            }
+                        });
+
+                        // Sonra buluttan gelen kayıtları ekle (silinmemiş olanlar)
+                        incomingRecords.forEach(r => {
+                            if (r && r.id && !deletedSet.has(r.id)) {
+                                recordMap.set(r.id, r);
+                            }
+                        });
+
+                        const merged = Array.from(recordMap.values());
+                        
+                        // Eğer yerelde bulutta henüz olmayan kayıtlar varsa, buluta da yükle
+                        const localHadUnsynced = merged.length > incomingRecords.length;
+
+                        records = merged;
+                        localStorage.setItem('robotik_records', JSON.stringify(records));
+
                         seasonCompleted = !!data.seasonCompleted;
                         seasonCompletedDate = data.seasonCompletedDate || null;
                         localStorage.setItem('thunderbots_season_completed', JSON.stringify(seasonCompleted));
@@ -740,8 +787,12 @@
                         renderStudents();
                         renderRecords();
                         updateSeasonUI();
+
+                        if (localHadUnsynced) {
+                            syncToCloud();
+                        }
                     } else {
-                        // Eğer bulutta henüz belge yoksa mevcut verileri buluta yükle
+                        // Belge henüz yoksa mevcut verileri buluta yükle
                         syncToCloud();
                     }
                 }, (error) => {
@@ -768,14 +819,19 @@
             // Her halükarda yerel hafızaya yaz (offline koruması)
             localStorage.setItem('robotik_students', JSON.stringify(students));
             localStorage.setItem('robotik_records', JSON.stringify(records));
+            localStorage.setItem('thunderbots_deleted_ids', JSON.stringify(deletedRecordIds));
+            localStorage.setItem('thunderbots_last_reset_time', lastResetTime);
             localStorage.setItem('thunderbots_season_completed', JSON.stringify(seasonCompleted));
             localStorage.setItem('thunderbots_season_completed_date', seasonCompletedDate || '');
 
             if (isCloudActive && db) {
                 try {
                     await db.collection('thunderbots').doc('work_tracker').set({
+                        season: "thunderbots_season_2026_clean", // Eski versiyonlar açılırsa sıfırlama tetiklemesin!
                         students: students,
                         records: records,
+                        deletedRecordIds: deletedRecordIds,
+                        lastResetTime: lastResetTime,
                         seasonCompleted: seasonCompleted,
                         seasonCompletedDate: seasonCompletedDate,
                         updatedAt: new Date().toISOString()
@@ -907,6 +963,10 @@
         async function deleteRecord(id) {
             if (confirm("Bu çalışma kaydını silmek istediğinize emin misiniz?")) {
                 records = records.filter(r => r.id !== id);
+                if (!deletedRecordIds.includes(id)) {
+                    deletedRecordIds.push(id);
+                    localStorage.setItem('thunderbots_deleted_ids', JSON.stringify(deletedRecordIds));
+                }
                 await syncToCloud();
                 renderRecords();
                 showToast("Kayıt silindi.");
@@ -1104,7 +1164,11 @@
                     if (importedData.students || importedData.records) {
                         if (confirm("Seçilen yedek yüklenecek ve mevcut veriler güncellenecek. Devam edilsin mi?")) {
                             if (Array.isArray(importedData.students)) students = importedData.students;
-                            if (Array.isArray(importedData.records)) records = importedData.records;
+                            if (Array.isArray(importedData.records)) {
+                                records = importedData.records;
+                                deletedRecordIds = [];
+                                localStorage.setItem('thunderbots_deleted_ids', JSON.stringify([]));
+                            }
                             
                             await syncToCloud();
                             renderStudents();
@@ -1156,7 +1220,11 @@
             }
 
             // Sistemi ve kayıtları sıfırla
+            lastResetTime = Date.now();
+            localStorage.setItem('thunderbots_last_reset_time', lastResetTime);
             records = [];
+            deletedRecordIds = [];
+            localStorage.setItem('thunderbots_deleted_ids', JSON.stringify([]));
             students = [...initialClubStudents];
 
             await syncToCloud();
