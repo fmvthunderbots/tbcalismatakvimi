@@ -568,6 +568,7 @@
                     <button type="button" class="btn-export" style="font-size: 13px; padding: 8px 14px;" onclick="exportData()">⬇️ JSON Yedeği İndir</button>
                     <button type="button" class="btn-import" style="font-size: 13px; padding: 8px 14px;" onclick="document.getElementById('importFile').click()">⬆️ Yedeği Yükle</button>
                     <button type="button" class="btn-delete" style="font-size: 13px; padding: 8px 14px; background: #dc2626;" onclick="openResetModal()">⚠️ Sezonu Sıfırla (Şifreli)</button>
+                    <button type="button" class="btn-quick" style="font-size: 13px; padding: 8px 14px; background: #3b82f6; color: white;" onclick="forceManualCloudSync()">☁️ Şimdi Buluta Gönder</button>
                     <input type="file" id="importFile" style="display: none;" accept=".json" onchange="importData(event)">
                 </div>
             </div>
@@ -631,14 +632,6 @@
         const RESET_PASSWORD = "26575982824.bati";
         const historicalTotalHours = 0; // Eski seneler sıfırlandı, yeni dönem 0 saat
         
-        // Cihazlardaki eski yıldan kalma önbelleği sıfırlama mekanizması
-        const CURRENT_SEASON_KEY = 'thunderbots_season_2026_clean';
-        if (localStorage.getItem('thunderbots_active_season') !== CURRENT_SEASON_KEY) {
-            localStorage.removeItem('robotik_records');
-            localStorage.removeItem('robotik_students');
-            localStorage.setItem('thunderbots_active_season', CURRENT_SEASON_KEY);
-        }
-
         let students = JSON.parse(localStorage.getItem('robotik_students')) || [...initialClubStudents];
         let records = JSON.parse(localStorage.getItem('robotik_records')) || [];
 
@@ -706,8 +699,8 @@
                 db = firebase.firestore();
                 isCloudActive = true;
 
-                statusDot.className = 'status-dot dot-green';
-                syncStatusText.innerText = '🟢 Bulut Bağlantısı Aktif (Canlı Senkronizasyon)';
+                statusDot.className = 'status-dot dot-yellow';
+                syncStatusText.innerText = '🟡 Buluta bağlanılıyor...';
 
                 // Gerçek zamanlı (Real-time) Bulut Dinleyicisi
                 const docRef = db.collection('thunderbots').doc('work_tracker');
@@ -715,34 +708,31 @@
                 if (unsubscribeSnapshot) unsubscribeSnapshot();
 
                 unsubscribeSnapshot = docRef.onSnapshot((doc) => {
+                    statusDot.className = 'status-dot dot-green';
+                    syncStatusText.innerText = '🟢 Bulut Bağlantısı Aktif (Canlı Senkronizasyon)';
+                    isCloudActive = true;
+
                     if (doc.exists) {
                         const data = doc.data();
-                        // Sezon kontrolü: Eski sezondan kalma kayıtları temizle
-                        if (data.season === CURRENT_SEASON_KEY) {
-                            if (data.students && Array.isArray(data.students)) {
-                                students = data.students;
-                                localStorage.setItem('robotik_students', JSON.stringify(students));
-                            }
-                            if (data.records && Array.isArray(data.records)) {
-                                records = data.records;
-                                localStorage.setItem('robotik_records', JSON.stringify(records));
-                            }
-                        } else {
-                            // Eski sezon tespit edildi: 2026 için temiz kurulum yap ve buluta yaz
-                            records = [];
-                            students = [...initialClubStudents];
-                            syncToCloud();
+                        if (data.students && Array.isArray(data.students)) {
+                            students = data.students;
+                            localStorage.setItem('robotik_students', JSON.stringify(students));
+                        }
+                        if (data.records && Array.isArray(data.records)) {
+                            records = data.records;
+                            localStorage.setItem('robotik_records', JSON.stringify(records));
                         }
                         renderStudents();
                         renderRecords();
                     } else {
-                        // Eğer bulutta ilk defa açılıyorsa mevcut temiz verileri buluta yükle
+                        // Eğer bulutta henüz belge yoksa bilgisayardaki mevcut verileri buluta yükle
                         syncToCloud();
                     }
                 }, (error) => {
                     console.error("Bulut okuma hatası:", error);
                     statusDot.className = 'status-dot dot-red';
-                    syncStatusText.innerText = 'Bulut Hatası (İzin veya Ağ): ' + error.message;
+                    syncStatusText.innerHTML = '🔴 Bulut Pasif: Firebase Konsolunda Firestore Veritabanı Oluşturulmamış!';
+                    isCloudActive = false;
                 });
 
             } catch (err) {
@@ -1082,6 +1072,21 @@
             alert("✅ Sistem başarıyla sıfırlandı!\nGeçmiş tüm kayıtlar temizlendi ve 2026 yeni dönem kadrosu hazırlandı.");
         }
 
+        // MANUEL BULUT EŞİTLEME
+        async function forceManualCloudSync() {
+            showToast("Buluta gönderiliyor...");
+            if (!db) {
+                alert("⚠️ Bulut bağlantısı henüz aktif değil!\nLütfen Firebase konsolunda Firestore Database'in oluşturulduğundan emin olun.");
+                return;
+            }
+            try {
+                await syncToCloud();
+                alert("✅ Bilgisayardaki tüm kayıtlar buluta başarıyla gönderildi ve eşitlendi! Şimdi telefonunuzdan da görebilirsiniz.");
+            } catch(e) {
+                alert("❌ Hata: Buluta gönderilemedi!\nLütfen Firebase Konsolunda Firestore Database'in açık olduğunu kontrol edin.\nDetay: " + e.message);
+            }
+        }
+
         // AYARLAR GİRİŞİ ŞİFRE KONTROLÜ
         function promptSettingsAuth() {
             document.getElementById('settingsPasswordInput').value = '';
@@ -1110,9 +1115,9 @@
         }
 
         function openSettingsModalDirect() {
-            const saved = localStorage.getItem('thunderbots_firebase_config');
-            if (saved) {
-                document.getElementById('firebaseConfigInput').value = saved;
+            const configToShow = EMBEDDED_FIREBASE_CONFIG || JSON.parse(localStorage.getItem('thunderbots_firebase_config') || 'null');
+            if (configToShow) {
+                document.getElementById('firebaseConfigInput').value = JSON.stringify(configToShow, null, 2);
             }
             document.getElementById('settingsModal').style.display = 'flex';
         }
