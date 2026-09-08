@@ -721,7 +721,7 @@
 
                 unsubscribeSnapshot = docRef.onSnapshot((doc) => {
                     statusDot.className = 'status-dot dot-green';
-                    syncStatusText.innerText = '🟢 Bulut Bağlantısı Aktif (Canlı Senkronizasyon)';
+                    syncStatusText.innerText = '🟢 Bulut Bağlantısı Aktif';
                     isCloudActive = true;
 
                     if (doc.exists) {
@@ -878,9 +878,17 @@
         async function removeStudent(studentName) {
             if (confirm(`"${studentName}" isimli öğrenciyi listeden silmek istediğinize emin misiniz?`)) {
                 students = students.filter(s => s !== studentName);
+                
+                showToast("⏳ Bulut güncelleniyor...");
                 await syncToCloud();
+                
                 renderStudents();
-                showToast(`"${studentName}" listeden çıkarıldı.`);
+                
+                if (isCloudActive) {
+                    showToast(`✅ "${studentName}" listeden çıkarıldı ve bulutta güncellendi.`);
+                } else {
+                    showToast(`✅ "${studentName}" listeden çıkarıldı (Yerel).`);
+                }
             }
         }
 
@@ -913,10 +921,18 @@
             }
 
             students.push(name);
+            
+            showToast("⏳ Bulut güncelleniyor...");
             await syncToCloud();
+            
             renderStudents();
             resetStudentForm();
-            showToast(`"${name}" listeye eklendi ve senkronize edildi.`);
+            
+            if (isCloudActive) {
+                showToast(`✅ "${name}" eklendi ve buluta senkronize edildi.`);
+            } else {
+                showToast(`✅ "${name}" listeye eklendi (Yerel).`);
+            }
         }
 
         // ÇALIŞMA KAYDI EKLE
@@ -940,6 +956,12 @@
                 return;
             }
 
+            const btnSave = document.getElementById('btnSaveRecord');
+            const originalText = btnSave.innerHTML;
+            btnSave.innerHTML = "⏳ Buluta Kaydediliyor...";
+            btnSave.disabled = true;
+            btnSave.style.opacity = "0.7";
+
             const newRecord = {
                 id: Date.now(),
                 date: date,
@@ -956,7 +978,16 @@
             setTodayDate();
             resetStudentForm(); 
             renderRecords();
-            showToast("✅ Çalışma kaydı başarıyla eklendi.");
+            
+            btnSave.innerHTML = originalText;
+            btnSave.disabled = false;
+            btnSave.style.opacity = "1";
+
+            if (isCloudActive) {
+                showToast("✅ Kayıt eklendi ve buluta anında senkronize edildi!");
+            } else {
+                showToast("✅ Çalışma kaydı başarıyla eklendi (Yerel Cihaz).");
+            }
         }
 
         // KAYIT SİL
@@ -967,9 +998,17 @@
                     deletedRecordIds.push(id);
                     localStorage.setItem('thunderbots_deleted_ids', JSON.stringify(deletedRecordIds));
                 }
+                
+                showToast("⏳ Buluttan siliniyor...");
                 await syncToCloud();
+                
                 renderRecords();
-                showToast("Kayıt silindi.");
+                
+                if (isCloudActive) {
+                    showToast("✅ Kayıt silindi ve bulut güncellendi.");
+                } else {
+                    showToast("✅ Kayıt silindi (Yerel).");
+                }
             }
         }
 
