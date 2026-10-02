@@ -317,9 +317,32 @@
             border-left: 2px solid var(--primary);
             line-height: 1.5;
         }
+
+        /* GEÇMİŞ ÇALIŞMALAR ACCORDION YAPISI */
+        .records-accordion summary {
+            list-style: none;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+        }
+        .records-accordion summary::-webkit-details-marker {
+            display: none;
+        }
+        .records-accordion summary::after {
+            content: '▼';
+            color: var(--primary);
+            font-size: 16px;
+            transition: transform 0.2s;
+            margin-left: 10px;
+        }
+        .records-accordion[open] summary::after {
+            transform: rotate(180deg);
+        }
         
         .summary {
-            margin-top: 20px;
+            margin-top: 0;
             padding: 18px;
             background: rgba(238, 242, 255, 0.9);
             border-left: 5px solid var(--primary);
@@ -468,25 +491,31 @@
         <button type="button" id="btnSaveRecord" onclick="saveRecord()">💾 Kayıt Ekle</button>
     </div>
 
-    <!-- GEÇMİŞ ÇALIŞMALAR KARTI -->
+    <!-- GEÇMİŞ ÇALIŞMALAR KARTI (GİZLENİR/AÇILIR) -->
     <div class="card">
-        <h2>Geçmiş Çalışmalar</h2>
-        
-        <div style="overflow-x: auto;">
-            <table id="recordsTable">
-                <thead>
-                    <tr>
-                        <th style="width: 25%;">Tarih</th>
-                        <th style="width: 45%;">Katılanlar</th>
-                        <th style="width: 20%;">Ders Saati</th>
-                        <th style="width: 10%;">İşlem</th>
-                    </tr>
-                </thead>
-                <tbody id="recordsBody"></tbody>
-            </table>
-        </div>
+        <details class="records-accordion">
+            <summary>
+                <h2 style="display: inline-block; margin: 0;">Geçmiş Çalışmalar</h2>
+            </summary>
+            <div style="overflow-x: auto; margin-top: 15px;">
+                <table id="recordsTable">
+                    <thead>
+                        <tr>
+                            <th style="width: 25%;">Tarih</th>
+                            <th style="width: 45%;">Katılanlar</th>
+                            <th style="width: 20%;">Ders Saati</th>
+                            <th style="width: 10%;">İşlem</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recordsBody"></tbody>
+                </table>
+            </div>
+        </details>
+    </div>
 
-        <!-- İSTATİSTİK VE ÖZET BİLGİ -->
+    <!-- İSTATİSTİK VE ÖZET BİLGİ KARTI -->
+    <div class="card">
+        <h2 style="margin-bottom: 12px;">Çalışma Özeti</h2>
         <div class="summary">
             <div class="stat-row">
                 <span>Genel Toplam Çalışma:</span>
@@ -521,6 +550,28 @@
             <div style="display: flex; gap: 10px; justify-content: flex-end;">
                 <button type="button" class="btn-small" onclick="closeResetModal()" style="background:#6b7280;">Vazgeç</button>
                 <button type="button" class="btn-delete" style="padding: 10px 18px; font-size: 14px; background: #dc2626;" onclick="executeSystemReset()">⚠️ Onayla ve Sıfırla</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SİLME İŞLEMİ İÇİN YÖNETİCİ ONAYI MODALI -->
+    <div id="deleteAuthModal" class="modal-backdrop">
+        <div class="modal-content" style="max-width: 420px; border-top: 5px solid var(--danger); text-align: center;">
+            <button class="modal-close" onclick="closeDeleteAuthModal()">&times;</button>
+            <div style="font-size: 36px; margin-bottom: 6px;">🔒</div>
+            <h3 style="margin-top: 0; color: var(--danger); font-size: 18px;">Yönetici Doğrulaması</h3>
+            <p style="font-size: 13px; color: #4b5563; margin-bottom: 16px; line-height: 1.5;">
+                Silme işlemi için yönetici şifresi gereklidir. Şifrenizi girdiğinizde bu cihazda hatırlanacaktır.
+            </p>
+
+            <div style="margin-bottom: 18px; text-align: left;">
+                <label for="deletePasswordInput" style="font-size: 13px; color: #374151;">Yönetici Şifresi:</label>
+                <input type="password" id="deletePasswordInput" placeholder="Şifreyi giriniz..." onkeydown="if(event.key==='Enter') verifyDeletePassword()">
+            </div>
+
+            <div style="display: flex; gap: 10px; justify-content: center;">
+                <button type="button" class="btn-small" onclick="closeDeleteAuthModal()" style="background:#6b7280; padding: 9px 18px;">İptal</button>
+                <button type="button" class="btn-add" onclick="verifyDeletePassword()" style="padding: 9px 20px;">Doğrula</button>
             </div>
         </div>
     </div>
@@ -646,6 +697,7 @@
         let lastResetTime = parseInt(localStorage.getItem('thunderbots_last_reset_time') || '0', 10);
         let seasonCompleted = JSON.parse(localStorage.getItem('thunderbots_season_completed') || 'false');
         let seasonCompletedDate = localStorage.getItem('thunderbots_season_completed_date') || null;
+        let pendingDeleteAction = null; // Silme onayı için bekleyen işlem
 
         // Eksik 2026 kadro öğrencileri varsa listeye ekle
         initialClubStudents.forEach(st => {
@@ -751,20 +803,16 @@
                             localStorage.setItem('robotik_students', JSON.stringify(students));
                         }
 
-                        // 4. ÇİFT TARAFLI AKILLI BİRLEŞTİRME (KAYIT KAYBOLMASINI %100 ÖNLER):
-                        // Buluttan gelenler ile yereldeki kayıtlar ID bazında birleştirilir.
-                        // Böylece bulut anlık boş gelse bile yereldeki kayıt ASLA silinmez!
+                        // 4. ÇİFT TARAFLI AKILLI BİRLEŞTİRME
                         const incomingRecords = (data.records && Array.isArray(data.records)) ? data.records : [];
                         const recordMap = new Map();
 
-                        // Önce yereldeki kayıtları ekle (silinmemiş olanlar)
                         records.forEach(r => {
                             if (r && r.id && !deletedSet.has(r.id)) {
                                 recordMap.set(r.id, r);
                             }
                         });
 
-                        // Sonra buluttan gelen kayıtları ekle (silinmemiş olanlar)
                         incomingRecords.forEach(r => {
                             if (r && r.id && !deletedSet.has(r.id)) {
                                 recordMap.set(r.id, r);
@@ -772,8 +820,6 @@
                         });
 
                         const merged = Array.from(recordMap.values());
-                        
-                        // Eğer yerelde bulutta henüz olmayan kayıtlar varsa, buluta da yükle
                         const localHadUnsynced = merged.length > incomingRecords.length;
 
                         records = merged;
@@ -792,7 +838,6 @@
                             syncToCloud();
                         }
                     } else {
-                        // Belge henüz yoksa mevcut verileri buluta yükle
                         syncToCloud();
                     }
                 }, (error) => {
@@ -814,9 +859,7 @@
             updateSeasonUI();
         }
 
-        // DEĞİŞİKLİKLERİ BULUTA VE YERELE YAZMA
         async function syncToCloud() {
-            // Her halükarda yerel hafızaya yaz (offline koruması)
             localStorage.setItem('robotik_students', JSON.stringify(students));
             localStorage.setItem('robotik_records', JSON.stringify(records));
             localStorage.setItem('thunderbots_deleted_ids', JSON.stringify(deletedRecordIds));
@@ -827,7 +870,7 @@
             if (isCloudActive && db) {
                 try {
                     await db.collection('thunderbots').doc('work_tracker').set({
-                        season: "thunderbots_season_2026_clean", // Eski versiyonlar açılırsa sıfırlama tetiklemesin!
+                        season: "thunderbots_season_2026_clean", 
                         students: students,
                         records: records,
                         deletedRecordIds: deletedRecordIds,
@@ -843,12 +886,42 @@
             }
         }
 
+        // SİLME İŞLEMİ İÇİN YÖNETİCİ KONTROLÜ
+        function promptAdminAuth(actionCallback) {
+            if (localStorage.getItem('thunderbots_admin_auth') === 'true') {
+                actionCallback();
+            } else {
+                pendingDeleteAction = actionCallback;
+                document.getElementById('deletePasswordInput').value = '';
+                document.getElementById('deleteAuthModal').style.display = 'flex';
+                setTimeout(() => document.getElementById('deletePasswordInput').focus(), 150);
+            }
+        }
+
+        function closeDeleteAuthModal() {
+            document.getElementById('deleteAuthModal').style.display = 'none';
+            pendingDeleteAction = null;
+        }
+
+        function verifyDeletePassword() {
+            const enteredPw = document.getElementById('deletePasswordInput').value.trim();
+            if (enteredPw === RESET_PASSWORD) {
+                localStorage.setItem('thunderbots_admin_auth', 'true');
+                closeDeleteAuthModal();
+                if (pendingDeleteAction) {
+                    pendingDeleteAction();
+                    pendingDeleteAction = null;
+                }
+            } else {
+                alert("❌ Hatalı şifre!");
+            }
+        }
+
         // ÖĞRENCİLERİ LİSTELE
         function renderStudents() {
             const container = document.getElementById('studentList');
             if (!container) return;
             
-            // Seçili olanları korumak için kontrol
             const currentlyChecked = new Set();
             document.querySelectorAll('.student-checkbox:checked').forEach(cb => currentlyChecked.add(cb.value));
 
@@ -868,31 +941,31 @@
             });
         }
 
-        // TÜMÜNÜ SEÇ / TEMİZLE
         function selectAllStudents(select) {
             const checkboxes = document.querySelectorAll('.student-checkbox');
             checkboxes.forEach(cb => cb.checked = select);
         }
 
-        // ÖĞRENCİ SİL
-        async function removeStudent(studentName) {
-            if (confirm(`"${studentName}" isimli öğrenciyi listeden silmek istediğinize emin misiniz?`)) {
-                students = students.filter(s => s !== studentName);
-                
-                showToast("⏳ Bulut güncelleniyor...");
-                await syncToCloud();
-                
-                renderStudents();
-                
-                if (isCloudActive) {
-                    showToast(`✅ "${studentName}" listeden çıkarıldı ve bulutta güncellendi.`);
-                } else {
-                    showToast(`✅ "${studentName}" listeden çıkarıldı (Yerel).`);
+        // ÖĞRENCİ SİL (YÖNETİCİ ONAYLI)
+        function removeStudent(studentName) {
+            promptAdminAuth(async () => {
+                if (confirm(`"${studentName}" isimli öğrenciyi listeden silmek istediğinize emin misiniz?`)) {
+                    students = students.filter(s => s !== studentName);
+                    
+                    showToast("⏳ Bulut güncelleniyor...");
+                    await syncToCloud();
+                    
+                    renderStudents();
+                    
+                    if (isCloudActive) {
+                        showToast(`✅ "${studentName}" listeden çıkarıldı ve bulutta güncellendi.`);
+                    } else {
+                        showToast(`✅ "${studentName}" listeden çıkarıldı (Yerel).`);
+                    }
                 }
-            }
+            });
         }
 
-        // YENİ ÖĞRENCİ FORMUNU AÇ/KAPAT
         function toggleStudentForm() {
             const form = document.getElementById('addStudentForm');
             const btn = document.getElementById('toggleStudentBtn');
@@ -909,7 +982,6 @@
             document.getElementById('newStudentName').value = '';
         }
 
-        // YENİ ÖĞRENCİ EKLE
         async function addNewStudent() {
             const input = document.getElementById('newStudentName');
             const name = input.value.trim();
@@ -935,7 +1007,6 @@
             }
         }
 
-        // ÇALIŞMA KAYDI EKLE
         async function saveRecord() {
             const date = document.getElementById('workDate').value;
             const hours = parseFloat(document.getElementById('workHours').value);
@@ -972,7 +1043,6 @@
             records.push(newRecord);
             await syncToCloud();
             
-            // Seçimleri temizle ve varsayılana dön
             selectAllStudents(false);
             document.getElementById('workHours').value = 1;
             setTodayDate();
@@ -990,35 +1060,35 @@
             }
         }
 
-        // KAYIT SİL
-        async function deleteRecord(id) {
-            if (confirm("Bu çalışma kaydını silmek istediğinize emin misiniz?")) {
-                records = records.filter(r => r.id !== id);
-                if (!deletedRecordIds.includes(id)) {
-                    deletedRecordIds.push(id);
-                    localStorage.setItem('thunderbots_deleted_ids', JSON.stringify(deletedRecordIds));
+        // KAYIT SİL (YÖNETİCİ ONAYLI)
+        function deleteRecord(id) {
+            promptAdminAuth(async () => {
+                if (confirm("Bu çalışma kaydını silmek istediğinize emin misiniz?")) {
+                    records = records.filter(r => r.id !== id);
+                    if (!deletedRecordIds.includes(id)) {
+                        deletedRecordIds.push(id);
+                        localStorage.setItem('thunderbots_deleted_ids', JSON.stringify(deletedRecordIds));
+                    }
+                    
+                    showToast("⏳ Buluttan siliniyor...");
+                    await syncToCloud();
+                    
+                    renderRecords();
+                    
+                    if (isCloudActive) {
+                        showToast("✅ Kayıt silindi ve bulut güncellendi.");
+                    } else {
+                        showToast("✅ Kayıt silindi (Yerel).");
+                    }
                 }
-                
-                showToast("⏳ Buluttan siliniyor...");
-                await syncToCloud();
-                
-                renderRecords();
-                
-                if (isCloudActive) {
-                    showToast("✅ Kayıt silindi ve bulut güncellendi.");
-                } else {
-                    showToast("✅ Kayıt silindi (Yerel).");
-                }
-            }
+            });
         }
 
-        // DİNAMİK HAFTALIK ORTALAMA HESABI (İLK GİRİLEN ÇALIŞMADAN İTİBAREN)
         function calculateAverage(grandTotal) {
             if (!records || records.length === 0 || grandTotal === 0) {
                 return "0.0";
             }
 
-            // İlk girilen çalışma tarihini bul
             const validDates = records
                 .map(r => new Date(r.date + 'T00:00:00'))
                 .filter(d => !isNaN(d.getTime()));
@@ -1027,7 +1097,6 @@
 
             const startDate = new Date(Math.min(...validDates));
             
-            // Eğer sezon tamamlandıysa (dondurulduysa) bitiş tarihi o gündür, değilse bugündür
             let endDate = new Date();
             endDate.setHours(0, 0, 0, 0);
 
@@ -1045,7 +1114,6 @@
             return (grandTotal / weeks).toFixed(1);
         }
 
-        // GEÇMİŞ ÇALIŞMALARI TABLOYA YANSIT
         function renderRecords() {
             const tbody = document.getElementById('recordsBody');
             if (!tbody) return;
@@ -1106,7 +1174,6 @@
             updateSeasonUI();
         }
 
-        // SEZON TAMAMLAMA & ARAYÜZ GÜNCELLEME
         function updateSeasonUI() {
             const btn = document.getElementById('btnToggleSeason');
             const banner = document.getElementById('seasonCompletedBanner');
@@ -1119,7 +1186,7 @@
                 const formattedDate = dateParts.length === 3 ? `${dateParts[2]}.${dateParts[1]}.${dateParts[0]}` : seasonCompletedDate;
 
                 btn.innerText = "🔄 Takvimi Yeniden Aktif Et (Hesaplamayı Devam Ettir)";
-                btn.style.backgroundColor = "#059669"; // Yeşil
+                btn.style.backgroundColor = "#059669"; 
                 
                 if (banner && dateSpan) {
                     dateSpan.innerText = formattedDate;
@@ -1127,7 +1194,7 @@
                 }
             } else {
                 btn.innerText = "🏁 Bu Yıl İçin Çalışma Takvimini Tamamla";
-                btn.style.backgroundColor = "#4c1d95"; // Mor
+                btn.style.backgroundColor = "#4c1d95"; 
                 
                 if (banner) {
                     banner.style.display = 'none';
@@ -1164,8 +1231,6 @@
             }
         }
 
-
-        // DIŞA AKTAR (JSON)
         function exportData() {
             if (records.length === 0 && students.length === 0) {
                 alert("İndirilecek veri bulunamadı.");
@@ -1190,7 +1255,6 @@
             downloadAnchorNode.remove();
         }
 
-        // İÇE AKTAR (JSON)
         function importData(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -1225,7 +1289,6 @@
             event.target.value = '';
         }
 
-        // SİSTEM SIFIRLAMA MODALI VE ŞİFRELİ SIFIRLAMA
         function openResetModal() {
             closeSettingsModal();
             document.getElementById('resetPasswordInput').value = '';
@@ -1249,7 +1312,6 @@
                 return;
             }
 
-            // Güvenlik için önce mevcut durumun yedeğini indir
             if (records.length > 0) {
                 try {
                     exportData();
@@ -1258,7 +1320,6 @@
                 }
             }
 
-            // Sistemi ve kayıtları sıfırla
             lastResetTime = Date.now();
             localStorage.setItem('thunderbots_last_reset_time', lastResetTime);
             records = [];
@@ -1275,7 +1336,6 @@
             alert("✅ Sistem başarıyla sıfırlandı!\nGeçmiş tüm kayıtlar temizlendi ve 2026 yeni dönem kadrosu hazırlandı.");
         }
 
-        // MANUEL BULUT EŞİTLEME
         async function forceManualCloudSync() {
             showToast("Buluta gönderiliyor...");
             if (!db) {
@@ -1290,7 +1350,6 @@
             }
         }
 
-        // AYARLAR GİRİŞİ ŞİFRE KONTROLÜ
         function promptSettingsAuth() {
             document.getElementById('settingsPasswordInput').value = '';
             document.getElementById('settingsAuthModal').style.display = 'flex';
@@ -1338,7 +1397,6 @@
                 return;
             }
 
-            // Eğer kullanıcı "const firebaseConfig = { ... };" şeklinde yapıştırdıysa ayıkla
             try {
                 if (inputVal.includes('{')) {
                     const startIdx = inputVal.indexOf('{');
@@ -1348,12 +1406,10 @@
                     }
                 }
                 
-                // Güvenli parse için gevşek JSON desteği (tırnaksız keyler vb.)
                 let parsedConfig;
                 try {
                     parsedConfig = JSON.parse(inputVal);
                 } catch(e) {
-                    // JS Object formatını JSON formatına çevirme
                     const jsonCleaned = inputVal
                         .replace(/(['"])?([a-zA-Z0-9_]+)(['"])?:/g, '"$2":')
                         .replace(/'/g, '"');
@@ -1372,7 +1428,6 @@
             }
         }
 
-        // XSS KORUMASI İÇİN HTML ESCAPE
         function escapeHtml(text) {
             if (!text) return '';
             return String(text)
@@ -1383,7 +1438,6 @@
                 .replace(/'/g, "&#039;");
         }
 
-        // BAŞLANGIÇ
         window.addEventListener('DOMContentLoaded', () => {
             setTodayDate();
             initFirebase();
